@@ -1,1 +1,330 @@
-# Bastille-Bid-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BASTILLE BID - Auction</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: black;
+      color: #f0e6d2;
+      overflow-x: hidden;
+    }
+
+    /* Stars background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(white 1px, transparent 1px), black;
+      background-size: 3px 3px;
+      animation: starMove 60s linear infinite;
+      z-index: -2;
+      opacity: 0.2;
+    }
+
+    @keyframes starMove {
+      0% { transform: translate(0, 0); }
+      100% { transform: translate(-50%, -50%); }
+    }
+
+    /* Fireworks effect */
+    .fireworks-bg {
+      background: url('https://i.imgur.com/MrG3bNS.gif') center center / cover no-repeat;
+      position: relative;
+      z-index: 0;
+      border: 2px solid #fff3;
+      animation: glow 2s infinite alternate;
+    }
+
+    @keyframes glow {
+      from { box-shadow: 0 0 10px #fff3; }
+      to { box-shadow: 0 0 20px #fff9; }
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 3em;
+      margin: 20px 0;
+      color: #ffe082;
+      text-shadow: 2px 2px 8px #000;
+    }
+
+    #loginSection, #auctionContainer {
+      max-width: 600px;
+      margin: 30px auto;
+      padding: 20px;
+      background: rgba(0,0,0,0.8);
+      border-radius: 10px;
+      box-shadow: 0 0 10px #000;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      font-size: 1em;
+    }
+
+    input {
+      background: #333;
+      border: 1px solid #888;
+      color: white;
+    }
+
+    button {
+      background-color: #ffc107;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #ffda44;
+    }
+
+    .auction-item {
+      background: #222;
+      border: 1px solid #555;
+      padding: 15px;
+      margin-top: 15px;
+      border-radius: 8px;
+    }
+
+    .current-bid {
+      color: #00e676;
+      font-weight: bold;
+    }
+
+    .bid-status {
+      height: 18px;
+      margin-top: 10px;
+      color: #ff5252;
+    }
+
+    #leaderboard {
+      background: #111;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 8px;
+    }
+
+    .leaderboard-entry {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid #333;
+    }
+
+    #adminPanel {
+      background: #0d0d0d;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 8px;
+      color: white;
+    }
+
+    .admin-btn {
+      background-color: #ff7043;
+      color: black;
+      margin: 5px 0;
+    }
+
+    .admin-btn:hover {
+      background-color: #ff8a65;
+    }
+  </style>
+</head>
+<body>
+  <h1>BASTILLE BID</h1>
+
+  <div id="loginSection" class="fireworks-bg">
+    <input type="text" id="usernameInput" placeholder="Enter your name">
+    <input type="password" id="passwordInput" placeholder="Admin password" style="display: none;">
+    <button onclick="login()">Enter Auction</button>
+    <p id="loginStatus"></p>
+  </div>
+
+  <div id="auctionContainer" class="fireworks-bg" style="display: none;">
+    <div id="welcomeMessage"></div>
+    <div id="leaderboard"></div>
+
+    <div id="adminPanel" style="display: none;">
+      <h3>Admin Panel</h3>
+      <button class="admin-btn" onclick="resetBids()">Reset All Bids</button>
+      <button class="admin-btn" onclick="removeAllUsers()">Remove All Users</button>
+      <div id="adminUsersList"></div>
+    </div>
+  </div>
+
+  <script>
+    const ADMIN_USERNAME = 'admin';
+    const ADMIN_PASSWORD = '201169';
+
+    const items = [
+      { id: 'item1', name: 'A Piece of Bastille' },
+      { id: 'item2', name: 'The Guillotine' },
+      { id: 'item3', name: 'Rights of Man Declaration' },
+      { id: 'item4', name: 'Sans-culottes Pants' },
+      { id: 'item5', name: 'The Bastille Key' }
+    ];
+
+    let bids = JSON.parse(localStorage.getItem('bids')) || {};
+    let activeUsers = JSON.parse(localStorage.getItem('activeUsers')) || [];
+    let currentUser = '';
+    let isAdmin = false;
+
+    const login = () => {
+      const username = document.getElementById('usernameInput').value.trim();
+      const password = document.getElementById('passwordInput').value;
+      const loginStatus = document.getElementById('loginStatus');
+
+      if (!username) {
+        loginStatus.textContent = "Enter a name.";
+        return;
+      }
+
+      if (username.toLowerCase() === ADMIN_USERNAME) {
+        if (password !== ADMIN_PASSWORD) {
+          loginStatus.textContent = "Wrong admin password.";
+          return;
+        }
+        isAdmin = true;
+      } else {
+        if (activeUsers.includes(username)) {
+          loginStatus.textContent = "Username already in use.";
+          return;
+        }
+        isAdmin = false;
+        activeUsers.push(username);
+        localStorage.setItem('activeUsers', JSON.stringify(activeUsers));
+      }
+
+      currentUser = username;
+      document.getElementById('loginSection').style.display = 'none';
+      showAuction();
+    };
+
+    document.getElementById('usernameInput').addEventListener('input', (e) => {
+      document.getElementById('passwordInput').style.display =
+        e.target.value.trim().toLowerCase() === ADMIN_USERNAME ? 'block' : 'none';
+    });
+
+    const showAuction = () => {
+      document.getElementById('auctionContainer').style.display = 'block';
+      document.getElementById('welcomeMessage').textContent = `Welcome, ${currentUser}${isAdmin ? ' (Admin)' : ''}`;
+
+      items.forEach(item => {
+        if (!bids[item.id]) bids[item.id] = { amount: 0, user: null };
+
+        const div = document.createElement('div');
+        div.className = 'auction-item';
+        div.innerHTML = `
+          <h3>${item.name}</h3>
+          <p class="current-bid">Current Bid: $<span id="${item.id}-amount">${bids[item.id].amount}</span> by <span id="${item.id}-user">${bids[item.id].user || 'None'}</span></p>
+          ${!isAdmin ? `
+            <input type="number" id="${item.id}-input" placeholder="Enter bid amount">
+            <button onclick="placeBid('${item.id}')">Place Bid</button>
+            <p class="bid-status" id="${item.id}-status"></p>
+          ` : ''}
+        `;
+        document.getElementById('auctionContainer').appendChild(div);
+      });
+
+      if (isAdmin) {
+        document.getElementById('adminPanel').style.display = 'block';
+        updateAdminUserList();
+      }
+
+      updateLeaderboard();
+    };
+
+    const placeBid = (itemId) => {
+      const input = document.getElementById(`${itemId}-input`);
+      const value = parseInt(input.value);
+      const status = document.getElementById(`${itemId}-status`);
+
+      if (isNaN(value) || value <= bids[itemId].amount) {
+        status.textContent = "Enter a higher bid.";
+        return;
+      }
+
+      bids[itemId] = { amount: value, user: currentUser };
+      localStorage.setItem('bids', JSON.stringify(bids));
+
+      document.getElementById(`${itemId}-amount`).textContent = value;
+      document.getElementById(`${itemId}-user`).textContent = currentUser;
+      status.textContent = "Bid placed!";
+
+      updateLeaderboard();
+    };
+
+    const updateLeaderboard = () => {
+      const scores = {};
+
+      for (const key in bids) {
+        const entry = bids[key];
+        if (!entry.user) continue;
+        scores[entry.user] = (scores[entry.user] || 0) + entry.amount;
+      }
+
+      const leaderboard = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+
+      const leaderboardDiv = document.getElementById('leaderboard');
+      leaderboardDiv.innerHTML = `<h3>Leaderboard</h3>`;
+      leaderboard.forEach(([user, amount]) => {
+        const row = document.createElement('div');
+        row.className = 'leaderboard-entry';
+        row.innerHTML = `<span>${user}</span><span>$${amount}</span>`;
+        leaderboardDiv.appendChild(row);
+      });
+    };
+
+    const updateAdminUserList = () => {
+      const container = document.getElementById('adminUsersList');
+      container.innerHTML = '<h4>Active Users</h4>';
+
+      activeUsers.forEach(user => {
+        const row = document.createElement('div');
+        row.innerHTML = `
+          ${user}
+          <button class="admin-btn" onclick="removeUser('${user}')">Remove</button>
+        `;
+        container.appendChild(row);
+      });
+    };
+
+    const removeUser = (username) => {
+      activeUsers = activeUsers.filter(u => u !== username);
+      localStorage.setItem('activeUsers', JSON.stringify(activeUsers));
+
+      for (const key in bids) {
+        if (bids[key].user === username) {
+          bids[key] = { amount: 0, user: null };
+        }
+      }
+      localStorage.setItem('bids', JSON.stringify(bids));
+
+      if (username === currentUser) {
+        alert("You were removed.");
+        location.reload();
+      } else {
+        location.reload();
+      }
+    };
+
+    const removeAllUsers = () => {
+      activeUsers = [];
+      localStorage.setItem('activeUsers', JSON.stringify(activeUsers));
+      localStorage.setItem('bids', JSON.stringify({}));
+      location.reload();
+    };
+  </script>
+</body>
+</html>
